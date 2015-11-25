@@ -50,18 +50,18 @@ avgFps ::
     => Int  -- ^ Number of samples.
     -> Wire s e m a b
 avgFps int | int < 1 = error "avgFps: Non-positive number of samples"
-avgFps int = loop Seq.empty
+avgFps int = loop' Seq.empty
     where
     intf = fromIntegral int
     afps = (/ intf) . F.foldl' (+) 0
 
-    loop ss' =
+    loop' ss' =
         mkSF $ \ds _ ->
             let fps = recip . realToFrac . dtime $ ds
                 ss  = Seq.take int (fps Seq.<| ss')
             in if isInfinite fps
-                 then (afps ss', loop ss')
-                 else ss `seq` (afps ss, loop ss)
+                 then (afps ss', loop' ss')
+                 else ss `seq` (afps ss, loop' ss)
 
 
 -- | Current framerate.
@@ -118,16 +118,16 @@ lAvg ::
 lAvg int =
     mkSF $ \ds x ->
         let t = dtime ds in
-        (x, loop t (Tl.singleton t x))
+        (x, loop' t (Tl.singleton t x))
 
     where
-    loop t' tl' =
+    loop' t' tl' =
         mkSF $ \ds x ->
             let t  = t' + dtime ds
                 t0 = t - int
                 tl = Tl.linCutL t0 (Tl.insert t x tl')
                 a  = Tl.linAvg t0 t tl
-            in (a, loop t tl)
+            in (a, loop' t tl)
 
 
 -- | Produce a linearly interpolated graph for the given points in time,
@@ -151,17 +151,17 @@ lGraph ::
 lGraph qts =
     mkSF $ \ds x ->
         let t = dtime ds in
-        (x <$ qts, loop t (Tl.singleton t x))
+        (x <$ qts, loop' t (Tl.singleton t x))
 
     where
     earliest = maximum (map abs qts)
 
-    loop t' tl' =
+    loop' t' tl' =
         mkSF $ \ds x ->
             let t  = t' + dtime ds
                 tl = Tl.linCutL (t - earliest) (Tl.insert t x tl')
                 ps = map (\qt -> Tl.linLookup (t - abs qt) tl) qts
-            in (ps, loop t tl)
+            in (ps, loop' t tl)
 
 
 -- | Graph the given interval from now with the given number of evenly
@@ -212,11 +212,11 @@ peakBy ::
     => o  -- ^ This ordering means the first argument is larger.
     -> (a -> a -> o)  -- ^ Compare two elements.
     -> Wire s e m a a
-peakBy o comp = mkSFN $ \x -> (x, loop x)
+peakBy o comp = mkSFN $ \x -> (x, loop' x)
     where
-    loop x' =
+    loop' x' =
         mkSFN $ \x ->
-            id &&& loop $
+            id &&& loop' $
             if comp x x' == o then x else x'
 
 
@@ -241,16 +241,16 @@ sAvg ::
 sAvg int =
     mkSF $ \ds x ->
         let t = dtime ds in
-        (x, loop t (Tl.singleton t x))
+        (x, loop' t (Tl.singleton t x))
 
     where
-    loop t' tl' =
+    loop' t' tl' =
         mkSF $ \ds x ->
             let t  = t' + dtime ds
                 t0 = t - int
                 tl = Tl.scCutL t0 (Tl.insert t x tl')
                 a  = Tl.scAvg t0 t tl
-            in (a, loop t tl)
+            in (a, loop' t tl)
 
 
 -- | Produce a staircase graph for the given points in time, where the
@@ -273,17 +273,17 @@ sGraph ::
 sGraph qts =
     mkSF $ \ds x ->
         let t = dtime ds in
-        (x <$ qts, loop t (Tl.singleton t x))
+        (x <$ qts, loop' t (Tl.singleton t x))
 
     where
     earliest = maximum (map abs qts)
 
-    loop t' tl' =
+    loop' t' tl' =
         mkSF $ \ds x ->
             let t  = t' + dtime ds
                 tl = Tl.scCutL (t - earliest) (Tl.insert t x tl')
                 ps = map (\qt -> Tl.scLookup (t - abs qt) tl) qts
-            in (ps, loop t tl)
+            in (ps, loop' t tl)
 
 
 -- | Graph the given interval from now with the given number of evenly

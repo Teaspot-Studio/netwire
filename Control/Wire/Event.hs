@@ -90,12 +90,12 @@ accumE ::
     (b -> a -> b)  -- ^ Fold function
     -> b           -- ^ Initial value.
     -> Wire s e m (Event a) (Event b)
-accumE f = loop
+accumE f = loop'
     where
-    loop x' =
+    loop' x' =
         mkSFN $
-            event (NoEvent, loop x')
-                  (\y -> let x = f x' y in (Event x, loop x))
+            event (NoEvent, loop' x')
+                  (\y -> let x = f x' y in (Event x, loop' x))
 
 
 -- | Left scan for events with no initial value.  Each time an event
@@ -279,15 +279,15 @@ once =
 
 periodic :: (HasTime t s) => t -> Wire s e m a (Event a)
 periodic int | int <= 0 = error "periodic: Non-positive interval"
-periodic int = mkSFN $ \x -> (Event x, loop int)
+periodic int = mkSFN $ \x -> (Event x, loop' int)
     where
-    loop 0 = loop int
-    loop t' =
+    loop' 0 = loop' int
+    loop' t' =
         mkSF $ \ds x ->
             let t = t' - dtime ds
             in if t <= 0
-                 then (Event x, loop (mod' t int))
-                 else (NoEvent, loop t)
+                 then (Event x, loop' (mod' t int))
+                 else (NoEvent, loop' t)
 
 
 -- | Periodic occurrence with the given time period.  First occurrence
@@ -297,16 +297,16 @@ periodic int = mkSFN $ \x -> (Event x, loop int)
 periodicList :: (HasTime t s) => t -> [b] -> Wire s e m a (Event b)
 periodicList int _ | int <= 0 = error "periodic: Non-positive interval"
 periodicList _ [] = never
-periodicList int (x:xs) = mkSFN $ \_ -> (Event x, loop int xs)
+periodicList int (x:xs) = mkSFN $ \_ -> (Event x, loop' int xs)
     where
-    loop _ [] = never
-    loop 0 xs = loop int xs
-    loop t' xs0@(x:xs) =
+    loop' _ [] = never
+    loop' 0 xs' = loop' int xs'
+    loop' t' xs0@(x':xs') =
         mkSF $ \ds _ ->
             let t = t' - dtime ds
             in if t <= 0
-                 then (Event x, loop (mod' t int) xs)
-                 else (NoEvent, loop t xs0)
+                 then (Event x', loop' (mod' t int) xs')
+                 else (NoEvent, loop' t xs0)
 
 
 -- | Product of all events.

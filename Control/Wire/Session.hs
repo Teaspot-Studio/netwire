@@ -21,10 +21,8 @@ module Control.Wire.Session
 import Control.Applicative
 import Control.Monad.IO.Class
 import Data.Data
-import Data.Foldable (Foldable)
 import Data.Monoid
 import Data.Time.Clock
-import Data.Traversable (Traversable)
 
 
 -- | State delta types with time deltas.

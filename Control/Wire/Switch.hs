@@ -35,8 +35,6 @@ import Control.Monad
 import Control.Wire.Core
 import Control.Wire.Event
 import Control.Wire.Unsafe.Event
-import Data.Monoid
-
 
 -- | Acts like the first wire until it inhibits, then switches to the
 -- second wire.  Infixr 1.
@@ -135,9 +133,9 @@ alternate w1 w2 = go w1 w2 w1
     where
     go w1' w2' w' =
         WGen $ \ds mx' ->
-            let (w1, w2, w) | Right (_, Event _) <- mx' = (w2', w1', w2')
+            let (w1'', w2'', w) | Right (_, Event _) <- mx' = (w2', w1', w2')
                             | otherwise  = (w1', w2', w')
-            in liftM (second (go w1 w2)) (stepWire w ds (fmap fst mx'))
+            in liftM (second (go w1'' w2'')) (stepWire w ds (fmap fst mx'))
 
 
 -- | Intrinsic switch:  Delayed version of 'switch'.
@@ -237,21 +235,21 @@ modes ::
     => k  -- ^ Initial mode.
     -> (k -> Wire s e m a b)  -- ^ Select wire for given mode.
     -> Wire s e m (a, Event k) b
-modes m0 select = loop M.empty m0 (select m0)
+modes m0 select = loop' M.empty m0 (select m0)
     where
-    loop ms' m' w'' =
+    loop' ms' m' w'' =
         WGen $ \ds mxev' ->
             case mxev' of
               Left _ -> do
                   (mx, w) <- stepWire w'' ds (fmap fst mxev')
-                  return (mx, loop ms' m' w)
+                  return (mx, loop' ms' m' w)
               Right (x', ev) -> do
-                  let (ms, m, w') = switch ms' m' w'' ev
+                  let (ms, m, w') = switch' ms' m' w'' ev
                   (mx, w) <- stepWire w' ds (Right x')
-                  return (mx, loop ms m w)
+                  return (mx, loop' ms m w)
 
-    switch ms' m' w' NoEvent = (ms', m', w')
-    switch ms' m' w' (Event m) =
+    switch' ms' m' w' NoEvent = (ms', m', w')
+    switch' ms' m' w' (Event m) =
         let ms = M.insert m' w' ms' in
         case M.lookup m ms of
           Nothing -> (ms, m, select m)

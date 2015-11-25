@@ -24,16 +24,16 @@ import Control.Wire
 derivative ::
     (RealFloat a, HasTime t s, Monoid e)
     => Wire s e m a a
-derivative = mkPure $ \_ x -> (Left mempty, loop x)
+derivative = mkPure $ \_ x -> (Left mempty, loop' x)
     where
-    loop x' =
+    loop' x' =
         mkPure $ \ds x ->
             let dt  = realToFrac (dtime ds)
                 dx  = (x - x') / dt
                 mdx | isNaN dx      = Right 0
                     | isInfinite dx = Left mempty
                     | otherwise     = Right dx
-            in mdx `seq` (mdx, loop x)
+            in mdx `seq` (mdx, loop' x)
 
 
 -- | Integrate the input signal over time.
@@ -68,10 +68,10 @@ integralWith ::
     => (w -> a -> a)  -- ^ Correction function.
     -> a              -- ^ Integration constant (aka start value).
     -> Wire s e m (a, w) a
-integralWith correct = loop
+integralWith correct = loop'
     where
-    loop x' =
+    loop' x' =
         mkPure $ \ds (dx, w) ->
             let dt = realToFrac (dtime ds)
                 x  = correct w (x' + dt*dx)
-            in x' `seq` (Right x', loop x)
+            in x' `seq` (Right x', loop' x)

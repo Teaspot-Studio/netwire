@@ -153,7 +153,7 @@ instance (MonadFix m) => ArrowLoop (Wire s e m) where
         WGen $ \ds mx' ->
             liftM (fmap fst ***! loop) .
             mfix $ \ ~(mx, _) ->
-                let d | Right (_, d) <- mx = d
+                let d | Right (_, d') <- mx = d'
                       | otherwise = error "Feedback broken by inhibition"
                 in stepWire w' ds (fmap (, d) mx')
 
@@ -265,7 +265,7 @@ instance (Monad m, Monoid e) => Strong (Wire s e m) where
 
 -- | This wire delays its input signal by the smallest possible
 -- (semantically infinitesimal) amount of time.  You can use it when you
--- want to use feedback ('ArrowLoop'):  If the user of the feedback
+-- want to use feedback ('Arrowloop''):  If the user of the feedback
 -- depends on /now/, delay the value before feeding it back.  The
 -- argument value is the replacement signal at the beginning.
 --
@@ -344,7 +344,7 @@ mapOutput f (WPure g)   = WPure (\ds -> (f *** mapOutput f) . g ds)
 
 mapWire ::
     (Monad m', Monad m)
-    => (forall a. m' a -> m a)
+    => (forall a'. m' a' -> m a')
     -> Wire s e m' a b
     -> Wire s e m a b
 mapWire _ (WArr g)    = WArr g
@@ -369,38 +369,38 @@ mkEmpty = mkConst (Left mempty)
 -- | Construct a stateful wire from the given transition function.
 
 mkGen :: (Monad m, Monoid s) => (s -> a -> m (Either e b, Wire s e m a b)) -> Wire s e m a b
-mkGen f = loop mempty
+mkGen f = loop' mempty
     where
-    loop s' =
+    loop' s' =
         WGen $ \ds mx ->
             let s = s' <> ds in
             s `seq`
             case mx of
-              Left ex  -> return (Left ex, loop s)
+              Left ex  -> return (Left ex, loop' s)
               Right x' -> liftM lstrict (f s x')
 
 
 -- | Construct a stateless wire from the given transition function.
 
 mkGen_ :: (Monad m) => (a -> m (Either e b)) -> Wire s e m a b
-mkGen_ f = loop
+mkGen_ f = loop'
     where
-    loop =
+    loop' =
         WGen $ \_ mx ->
             case mx of
-              Left ex -> return (Left ex, loop)
-              Right x -> liftM (lstrict . (, loop)) (f x)
+              Left ex -> return (Left ex, loop')
+              Right x -> liftM (lstrict . (, loop')) (f x)
 
 
 -- | Construct a stateful wire from the given transition function.
 
 mkGenN :: (Monad m) => (a -> m (Either e b, Wire s e m a b)) -> Wire s e m a b
-mkGenN f = loop
+mkGenN f = loop'
     where
-    loop =
+    loop' =
         WGen $ \_ mx ->
             case mx of
-              Left ex  -> return (Left ex, loop)
+              Left ex  -> return (Left ex, loop')
               Right x' -> liftM lstrict (f x')
 
 
@@ -413,14 +413,14 @@ mkId = WId
 -- | Construct a pure stateful wire from the given transition function.
 
 mkPure :: (Monoid s) => (s -> a -> (Either e b, Wire s e m a b)) -> Wire s e m a b
-mkPure f = loop mempty
+mkPure f = loop' mempty
     where
-    loop s' =
+    loop' s' =
         WPure $ \ds mx ->
             let s = s' <> ds in
             s `seq`
             case mx of
-              Left ex  -> (Left ex, loop s)
+              Left ex  -> (Left ex, loop' s)
               Right x' -> lstrict (f s x')
 
 
@@ -433,12 +433,12 @@ mkPure_ f = WArr $ (>>= f)
 -- | Construct a pure stateful wire from the given transition function.
 
 mkPureN :: (a -> (Either e b, Wire s e m a b)) -> Wire s e m a b
-mkPureN f = loop
+mkPureN f = loop'
     where
-    loop =
+    loop' =
         WPure $ \_ mx ->
             case mx of
-              Left ex  -> (Left ex, loop)
+              Left ex  -> (Left ex, loop')
               Right x' -> lstrict (f x')
 
 

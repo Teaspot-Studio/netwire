@@ -28,7 +28,6 @@ module FRP.Netwire.Utils.Timeline
     where
 
 import qualified Data.Map.Strict as M
-import Control.Applicative
 import Data.Data
 import Data.Map.Strict (Map)
 
